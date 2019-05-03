@@ -1,0 +1,132 @@
+---
+title: "Machine Learning Prediction"
+author: "aniceaux"
+date: "May 3, 2019"
+output:
+  html_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Overview
+
+The goal is to predict the manner in which individuals will do an exercise, using the "classe" variable and any of the other variables in the training set for predictions. Description of how the model was built, cross validation, and expected output of sample error. Explanation of choices and prediction model.
+
+
+**How the Model Was Built**
+
+Using the "classe" variable and other predictors - the model will be built using decision tree and random forest algorithm.
+
+The source of this model is based on the *Human Activity Recognition* Article. The collaborators Ugulino, Velloso, and Fuks have identified six young health participants asked to perform one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different fashions: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E).
+
+Reference: [HAR] http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har
+
+**Cross-Validation**
+
+Cross-validation will be performed on the training set and the testing set to aid in estimating the prediction error. This resampling method will take the model and divide it into two sub-sample sets. The sub-training set will be used to to build the model, and the sub-testing set will be used to validate the model. The more accurate subset will be tested against the original set.
+
+**Expected Out of Sample Error**
+
+Out of Sample Error is "the error rate you get on a new data set".The expectation is that the out-of-sample error will correlate with the accuracy of the cross-validation data. Based on results of cross-validation, the out of sample error will be the proportion of misclassified cases over the total cases in the test data.
+
+**Explanation of Prediction Model**
+
+The training set for this model is large with over 1,900 records. Due to the size of the sample, it's best to break it down into two sub-samples to allow for cross-validation. The classe variable is used to predict how the individuals performed the excercise. Other varibales like pitch_forearm, roll_belt, accel_dumbbell, etc. aid in the predictions.
+* Decision Tree - explicitly visualizes decision making; splitting data into smaller groups, showing how a specific decision or variable leads to a particular outcome.conclusion
+* Random Forest splits data on random subsets, considering only a small subset of the data model instead of the whole data model.
+Both methods are good for classifcation and regression
+
+
+## Analysis
+
+Install packages
+```{r}
+library(ggplot2)
+library(lattice)
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+```
+
+Reproducibility - set seed
+```{r}
+set.seed(1234)
+```
+
+Load training and testing sets, clean up records with missing data
+```{r}
+trainSet <- read.csv("pml-training.csv", na.strings=c("NA","#DIV/0!", ""))
+testSet <- read.csv("pml-testing.csv", na.strings=c("NA","#DIV/0!", ""))
+```
+
+Remove columns with missing data
+```{r}
+trainSet <-trainSet[,colSums(is.na(trainSet)) == 0]
+testSet <-testSet[,colSums(is.na(testSet)) == 0]
+```
+
+Remove irrelevant vairables
+```{r}
+trainSet   <-trainSet[,-c(1:7)]
+testSet <-testSet[,-c(1:7)]
+```
+
+Exlore cleaned dataset
+```{r}
+#head(trainSet)
+#head(testSet)
+```
+
+Create sub-samples for training and testing datasets
+```{r}
+trainingSubSample <- createDataPartition(y=trainSet$classe, p=0.75, list=FALSE)
+subTrain <- trainSet[trainingSubSample , ] 
+subTest <- trainSet[-trainingSubSample , ]
+```
+
+Explore sub- dataset
+```{r}
+#head(subTrain)
+#head(subTest)
+```
+
+Prediction Model: Decision Tree
+```{r}
+#decision tree
+decTree <- rpart(classe ~ ., data=subTrain, method="class")
+
+#prediction
+decTreePredict <- predict(decTree, subTest, type = "class")
+
+#plot predicition model using decision tree
+rpart.plot(decTree, main="Decision Tree", extra=102, tweak = 2, under=TRUE, faclen=0)
+
+#calculate cross-tabulation of observed and predicted classes
+confusionMatrix(decTreePredict, subTest$classe)
+```
+
+Prediction Model: Random Forest
+```{r}
+#random forest
+randFor <- randomForest(classe ~. , data=subTrain, method="class")
+
+#prediction
+randForPredict <- predict(randFor, subTest, type = "class")
+
+#calculate cross-tabulation of observed and predicted classes
+confusionMatrix(randForPredict, subTest$classe)
+```
+
+## Conclusion
+
+Random Forest performed better than Decision Tree. Accuracy of Random Forest is 99.57%, whil Decision Tree accuracy is only 73.94%. *Random Forest is the chosen model due to its 99.57% accuracy*.
+
+**Final Outcome for Testing dataset**
+```{r}
+finalPrediction <- predict(randFor, testSet, type="class")
+finalPrediction
+```
